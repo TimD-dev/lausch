@@ -6,36 +6,47 @@ import logging
 import sys
 import threading
 import time
+from typing import TYPE_CHECKING
 
 import keyboard
-from PyQt6.QtCore import QObject, pyqtSignal
-from PyQt6.QtWidgets import QApplication
 
 from lausch.audio.recorder import AudioRecorder
 from lausch.config import AppConfig
 from lausch.input.text_inserter import TextInserter
 from lausch.logging_setup import setup_logging
 from lausch.transcription.transcriber import Transcriber
-from lausch.ui.overlay import OverlayWindow
+
+if TYPE_CHECKING:
+    from PyQt6.QtWidgets import QApplication
 
 logger = logging.getLogger(__name__)
 
 
-class AppSignals(QObject):
-    update_audio = pyqtSignal(list)
-    show_ui = pyqtSignal()
-    hide_ui = pyqtSignal()
-
-
 class LauschApp:
     def __init__(
-        self, app: QApplication, config: AppConfig = AppConfig()
+        self,
+        app: QApplication,
+        transcriber: Transcriber,
+        config: AppConfig = AppConfig(),
     ) -> None:
+        from PyQt6.QtCore import QObject, pyqtSignal
+
         logger.info("Initializing application")
         self.app = app
         self.config = config
 
+        self.transcriber = transcriber
+
+        from lausch.ui.overlay import OverlayWindow
+
         self.ui = OverlayWindow(config.ui)
+
+        # AppSignals must be defined after QApplication exists
+        class AppSignals(QObject):
+            update_audio = pyqtSignal(list)
+            show_ui = pyqtSignal()
+            hide_ui = pyqtSignal()
+
         self.signals = AppSignals()
 
         # Connect signals to UI (thread-safe UI updates)
@@ -47,7 +58,6 @@ class LauschApp:
         # Wire the audio recording data to the Qt signal to animate the UI
         self.recorder.on_audio_data = self.signals.update_audio.emit
 
-        self.transcriber = Transcriber(config.transcriber)
         self.inserter = TextInserter(config.insertion)
 
         self.is_running = True
@@ -119,8 +129,16 @@ class LauschApp:
 def main() -> None:
     setup_logging()
     try:
+        config = AppConfig()
+
+        # Load Transcriber BEFORE QApplication to avoid ctranslate2/PyQt6
+        # OpenGL conflict that causes a segfault on Windows
+        transcriber = Transcriber(config.transcriber)
+
+        from PyQt6.QtWidgets import QApplication
+
         app_instance = QApplication(sys.argv)
-        lausch = LauschApp(app_instance)
+        lausch = LauschApp(app_instance, transcriber, config)
         lausch.run()
     except KeyboardInterrupt:
         logger.info("App terminated by user")
