@@ -14,31 +14,56 @@ You can stop the application entirely by pressing the `Esc` key.
 
 ## Project Structure
 
-The project is structured efficiently to separate logic into distinct modules within the `src` directory, managed by the entry point `main.py`.
-
 ```text
 lausch/
-│
-├── main.py                     # Entry point for the application. It runs the PyQt6 main loop
-│                               # and creates a robust polling background thread to monitor 
-│                               # keyboard shortcuts ('Ctrl + Space') to safely orchestrate 
-│                               # the recording, transcription, and UI without blocking.
-│
-├── learnings.md                # A deep-dive document explaining how all the components work
-│                               # dynamically under the hood. Great for learning Python patterns!
-│
-└── src/                        # Core application modules
-    ├── audio_recorder.py       # Handles reading data from your microphone using sounddevice
-    │                           # and storing it into a numpy array for direct processing.
-    │
-    ├── transcriber.py          # Interfaces with the local faster-whisper model to turn
-    │                           # the audio data into text.
-    │
-    ├── text_inserter.py        # Handles the complex task of simulating text entry by securely 
-    │                           # preserving clipboard history, pasting the new text, and restoring.
-    │
-    └── ui/                     # Frontend modules
-        └── overlay.py          # A borderless PyQt6 desktop overlay with a dynamic audio visualizer.
+├── pyproject.toml                   # Project metadata & dependencies
+├── lausch.spec                      # PyInstaller configuration
+├── README.md
+├── docs/
+│   ├── learnings.md                 # Technical deep-dive documentation
+│   └── agent_roles.md               # Multi-agent development guide
+├── scripts/
+│   └── build.py                     # PyInstaller build automation
+├── lausch/                          # Python package
+│   ├── __init__.py
+│   ├── __main__.py                  # Entry point for `python -m lausch`
+│   ├── main.py                      # Application orchestrator
+│   ├── config.py                    # Central configuration (all constants)
+│   ├── logging_setup.py             # Logging configuration
+│   ├── audio/
+│   │   └── recorder.py             # Microphone capture with threading
+│   ├── transcription/
+│   │   └── transcriber.py          # Whisper model integration
+│   ├── input/
+│   │   └── text_inserter.py        # Clipboard-based text injection
+│   └── ui/
+│       ├── overlay.py              # Desktop overlay window
+│       └── visualizer.py           # Audio bar visualizer widget
+└── tests/
+    ├── conftest.py                  # Shared pytest fixtures
+    └── test_overlay.py              # UI overlay test
+```
+
+## Installation
+
+```bash
+# Clone the repository
+git clone <repo-url>
+cd lausch
+
+# Create and activate virtual environment
+python -m venv .venv
+.venv\Scripts\activate  # Windows
+
+# Install in development mode
+pip install -e ".[dev]"
+```
+
+## Usage
+
+```bash
+# Run the application
+python -m lausch
 ```
 
 ## Requirements
@@ -52,25 +77,20 @@ The app utilizes several third-party libraries:
 
 By leveraging a local machine learning model, it guarantees dictation tasks are kept local and private.
 
-## 📦 Build Instructions
+## Build Instructions
 
-To build a standalone Windows executable, use the provided `build.py` script. This uses PyInstaller to bundle the application along with all heavy machine learning dependencies.
+To build a standalone Windows executable, use the provided build script.
 
 ### Prerequisites
-Make sure PyInstaller is installed:
 ```bash
-pip install pyinstaller
+pip install -e ".[dev]"
 ```
 
 ### Running the Build
-1. Open a terminal in the project directory.
-2. Run the build script:
-   ```bash
-   python build.py
-   ```
-3. The script will clean up old builds and generate the application in `--onedir` mode.
-4. Once completed, the application will be located inside the `dist/lausch` directory. 
-5. You can run the application by launching `dist/lausch/lausch.exe`.
-6. To distribute the app, simply zip the entire `dist/lausch` folder.
+```bash
+python scripts/build.py
+```
 
-*Note: On the first launch of `lausch.exe`, it will dynamically download the required `faster-whisper` model into the HuggingFace cache directory if it's not already present. Subsequent launches will be significantly faster.*
+The application will be generated in `--onedir` mode inside the `dist/lausch` directory. To distribute, zip the entire `dist/lausch` folder.
+
+*Note: On the first launch, the required `faster-whisper` model will be downloaded automatically. Subsequent launches will be significantly faster.*
