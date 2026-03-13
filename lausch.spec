@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = []
+datas = [('assets/lausch.ico', 'assets')]
 binaries = []
 hiddenimports = ['sounddevice', 'soundfile', 'keyboard', 'pyperclip', 'numpy']
 tmp_ret = collect_all('faster_whisper')
@@ -32,17 +32,18 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='lausch',
+    name='Lausch',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,
+    console=False,  # No console window — runs as GUI app
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon='assets/lausch.ico',
 )
 coll = COLLECT(
     exe,
@@ -51,5 +52,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='lausch',
+    name='Lausch',
 )

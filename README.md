@@ -1,96 +1,136 @@
-# Lausch App
+# Lausch
 
-**Lausch** (German for "listen") is a locally running dictation application that utilizes the faster-whisper model to provide quick and privacy-focused speech-to-text functionality. Instead of sending audio to the cloud, it transcribes your speech locally on your machine and quickly types it out for you wherever your keyboard cursor currently is.
+**Lausch** (German for *"listen"*) is a privacy-first, offline dictation app for Windows. It captures your voice, transcribes it locally using [faster-whisper](https://github.com/SYSTRAN/faster-whisper), and inserts the text wherever your cursor is — no cloud, no account, no data leaves your machine.
 
-## Functionality
+## Features
 
-1. **Global Hotkey:** The application runs in the background. Press `Ctrl + Space` to start recording.
-2. **Dictation:** Speak into your microphone.
-3. **Stop & Process:** Press `Ctrl + Space` again to stop the recording.
-4. **Transcription:** The faster-whisper model will process the recorded audio locally to detect your speech.
-5. **Auto-Type Insertion:** The app seamlessly inserts the transcribed text by temporarily copying it to your clipboard, triggering a `Ctrl + V` paste command at your current cursor position, and then immediately restoring the contents of your original clipboard.
+- **Fully offline** — runs entirely on your CPU, no internet required after model download
+- **Global hotkey** — press `Ctrl+Space` to start/stop dictation from any app
+- **Auto-paste** — transcribed text is inserted at your cursor position instantly
+- **Multilingual** — optimized for German and English with language-specific prompts
+- **Audio normalization** — adaptive gain ensures consistent recognition regardless of mic volume
+- **Smooth visualizer** — animated overlay shows mic activity with interpolated bars
+- **System tray** — lives in your taskbar with quick access to settings
+- **Configurable** — language, model size, microphone, shortcut, UI position, and autostart
+- **Persistent settings** — saved to `%APPDATA%\Lausch\settings.json`
 
-You can stop the application entirely by pressing the `Esc` key.
+## How It Works
+
+1. **Start** — launch Lausch, it loads the Whisper model and waits in the system tray
+2. **Record** — press `Ctrl+Space`, the overlay appears with an audio visualizer
+3. **Speak** — talk naturally, the bars animate in response to your voice
+4. **Stop** — press `Ctrl+Space` again, audio is normalized and transcribed
+5. **Insert** — text is pasted at your cursor via clipboard (original clipboard is restored)
+6. **Quit** — press `Esc` or right-click the tray icon → Quit
 
 ## Project Structure
 
-```text
+```
 lausch/
-├── pyproject.toml                   # Project metadata & dependencies
-├── lausch.spec                      # PyInstaller configuration
+├── pyproject.toml                    # Project metadata & dependencies
+├── lausch.spec                       # PyInstaller build config
 ├── README.md
-├── docs/
-│   ├── learnings.md                 # Technical deep-dive documentation
-│   └── agent_roles.md               # Multi-agent development guide
 ├── scripts/
-│   └── build.py                     # PyInstaller build automation
-├── lausch/                          # Python package
+│   └── build.py                      # Build automation
+├── installer/
+│   └── lausch_setup.iss              # Inno Setup installer script
+├── assets/
+│   └── icon.ico                      # App icon
+├── lausch/                           # Main package
 │   ├── __init__.py
-│   ├── __main__.py                  # Entry point for `python -m lausch`
-│   ├── main.py                      # Application orchestrator
-│   ├── config.py                    # Central configuration (all constants)
-│   ├── logging_setup.py             # Logging configuration
+│   ├── __main__.py                   # Entry point (python -m lausch)
+│   ├── main.py                       # App orchestrator & hotkey polling
+│   ├── config.py                     # Dataclass configs (Audio, UI, Keyboard, etc.)
+│   ├── settings.py                   # JSON-based persistent settings
+│   ├── logging_setup.py              # Logging configuration
+│   ├── autostart.py                  # Windows autostart registry helper
 │   ├── audio/
-│   │   └── recorder.py             # Microphone capture with threading
+│   │   └── recorder.py              # Mic capture, adaptive gain, RMS normalization
 │   ├── transcription/
-│   │   └── transcriber.py          # Whisper model integration
+│   │   └── transcriber.py           # faster-whisper integration with VAD
 │   ├── input/
-│   │   └── text_inserter.py        # Clipboard-based text injection
+│   │   └── text_inserter.py         # Clipboard-based text injection
 │   └── ui/
-│       ├── overlay.py              # Desktop overlay window
-│       └── visualizer.py           # Audio bar visualizer widget
+│       ├── overlay.py               # Frameless desktop overlay window
+│       ├── visualizer.py            # Smooth animated audio bar widget
+│       ├── settings_window.py       # Settings UI (Times New Roman design)
+│       └── tray.py                  # System tray icon & menu
 └── tests/
-    ├── conftest.py                  # Shared pytest fixtures
-    └── test_overlay.py              # UI overlay test
+    ├── conftest.py
+    └── test_overlay.py
 ```
 
 ## Installation
 
+### From source (development)
+
 ```bash
-# Clone the repository
-git clone <repo-url>
+git clone https://github.com/TimD-dev/lausch.git
 cd lausch
 
-# Create and activate virtual environment
 python -m venv .venv
-.venv\Scripts\activate  # Windows
+.venv\Scripts\activate
 
-# Install in development mode
 pip install -e ".[dev]"
 ```
+
+### From installer
+
+Download `LauschSetup.exe` from [Releases](https://github.com/TimD-dev/lausch/releases) and run it. No Python required.
 
 ## Usage
 
 ```bash
-# Run the application
 python -m lausch
 ```
 
-## Requirements
+On first launch, the Whisper model (~460 MB for `small`) is downloaded automatically. Subsequent starts are fast.
 
-The app utilizes several third-party libraries:
-- `PyQt6` for the modern, hardware-accelerated desktop overlay UI.
-- `keyboard` for safe background global shortcut polling (`is_pressed`).
-- `sounddevice` for microphone input and `numpy` for data handling.
-- `faster-whisper` for the actual transcription engine.
-- `pyperclip` for clipboard management during the text insertion phase.
+### Keyboard Shortcuts
 
-By leveraging a local machine learning model, it guarantees dictation tasks are kept local and private.
+| Shortcut | Action |
+|---|---|
+| `Ctrl+Space` | Start / stop recording |
+| `Esc` | Quit the application |
 
-## Build Instructions
+### Settings
 
-To build a standalone Windows executable, use the provided build script.
+Right-click the system tray icon → **Settings** to configure:
 
-### Prerequisites
+| Setting | Options | Default |
+|---|---|---|
+| Language | Auto, Deutsch, English | Auto |
+| Model | tiny, base, small, medium | small |
+| Microphone | System default or specific device | Default |
+| Shortcut | Any key combination | Ctrl+Space |
+| UI Position | Bottom, Top | Bottom |
+| Autostart | On/Off | Off |
+
+## Tech Stack
+
+| Component | Library |
+|---|---|
+| Speech recognition | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (CTranslate2) |
+| Audio capture | [sounddevice](https://python-sounddevice.readthedocs.io/) + NumPy |
+| Desktop UI | [PyQt6](https://www.riverbankcomputing.com/software/pyqt/) |
+| Global hotkeys | [keyboard](https://github.com/boppreh/keyboard) |
+| Clipboard | [pyperclip](https://github.com/asweigart/pyperclip) |
+| Packaging | [PyInstaller](https://pyinstaller.org/) + [Inno Setup](https://jrsoftware.org/isinfo.php) |
+
+## Build
+
 ```bash
-pip install -e ".[dev]"
+# Build standalone executable
+pyinstaller lausch.spec
+
+# Create Windows installer (requires Inno Setup)
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\lausch_setup.iss
 ```
 
-### Running the Build
-```bash
-python scripts/build.py
-```
+## Privacy
 
-The application will be generated in `--onedir` mode inside the `dist/lausch` directory. To distribute, zip the entire `dist/lausch` folder.
+All audio processing happens locally. No data is sent to any server. The Whisper model runs on your CPU — your voice never leaves your machine.
 
-*Note: On the first launch, the required `faster-whisper` model will be downloaded automatically. Subsequent launches will be significantly faster.*
+## License
+
+MIT

@@ -11,13 +11,15 @@ from typing import TYPE_CHECKING
 import keyboard
 
 from lausch.audio.recorder import AudioRecorder
-from lausch.config import AppConfig
 from lausch.input.text_inserter import TextInserter
 from lausch.logging_setup import setup_logging
+from lausch.settings import Settings
 from lausch.transcription.transcriber import Transcriber
 
 if TYPE_CHECKING:
     from PyQt6.QtWidgets import QApplication
+
+    from lausch.config import AppConfig
 
 logger = logging.getLogger(__name__)
 
@@ -27,14 +29,15 @@ class LauschApp:
         self,
         app: QApplication,
         transcriber: Transcriber,
-        config: AppConfig = AppConfig(),
+        settings: Settings,
+        config: AppConfig,
     ) -> None:
         from PyQt6.QtCore import QObject, pyqtSignal
 
         logger.info("Initializing application")
         self.app = app
+        self.settings = settings
         self.config = config
-
         self.transcriber = transcriber
 
         from lausch.ui.overlay import OverlayWindow
@@ -55,7 +58,6 @@ class LauschApp:
         self.signals.hide_ui.connect(self.ui.hide)
 
         self.recorder = AudioRecorder(config.audio)
-        # Wire the audio recording data to the Qt signal to animate the UI
         self.recorder.on_audio_data = self.signals.update_audio.emit
 
         self.inserter = TextInserter(config.insertion)
@@ -63,8 +65,55 @@ class LauschApp:
         self.is_running = True
         self.recording_active = False
 
+        # System tray
+        from lausch.ui.tray import LauschTray
+
+        self.tray = LauschTray(
+            app,
+            settings,
+            on_settings=self._open_settings,
+            on_quit=self._quit,
+        )
+        self.tray.show()
+
+        self._settings_window = None
+
+    def _open_settings(self) -> None:
+        from lausch.ui.settings_window import SettingsWindow
+
+        if self._settings_window is not None:
+            self._settings_window.raise_()
+            self._settings_window.activateWindow()
+            return
+
+        self._settings_window = SettingsWindow(self.settings)
+        self._settings_window.settings_saved.connect(self._on_settings_saved)
+        self._settings_window.destroyed.connect(
+            lambda: setattr(self, "_settings_window", None)
+        )
+        from PyQt6.QtCore import Qt as QtCore_Qt
+
+        self._settings_window.setAttribute(
+            QtCore_Qt.WidgetAttribute.WA_DeleteOnClose
+        )
+        self._settings_window.show()
+
+    def _on_settings_saved(self) -> None:
+        logger.info("Settings changed, restart required for some changes")
+        self.tray.showMessage(
+            "Lausch",
+            "Einstellungen gespeichert. Einige \u00c4nderungen werden beim n\u00e4chsten Start wirksam.",
+            self.tray.MessageIcon.Information,
+            3000,
+        )
+
+    def _quit(self) -> None:
+        self.is_running = False
+        if self.recording_active:
+            self.recorder.stop_recording()
+        self.app.quit()
+
     def toggle_recording(self) -> None:
-        """Called when the shortcut is pressed in the background thread."""
         if not self.recording_active:
             logger.info("Recording started")
             self.recording_active = True
@@ -85,16 +134,12 @@ class LauschApp:
                 self.inserter.insert_text(text)
 
     def _poll_shortcut(self) -> None:
-        """Poll for keyboard shortcuts in a background thread."""
         was_pressed = False
         while self.is_running:
             try:
                 if keyboard.is_pressed(self.config.keyboard.exit_shortcut):
                     logger.info("Exiting application")
-                    self.is_running = False
-                    if self.recording_active:
-                        self.recorder.stop_recording()
-                    self.app.quit()
+                    self._quit()
                     break
 
                 is_pressed = keyboard.is_pressed(
@@ -129,7 +174,8 @@ class LauschApp:
 def main() -> None:
     setup_logging()
     try:
-        config = AppConfig()
+        settings = Settings()
+        config = settings.to_app_config()
 
         # Load Transcriber BEFORE QApplication to avoid ctranslate2/PyQt6
         # OpenGL conflict that causes a segfault on Windows
@@ -138,7 +184,7 @@ def main() -> None:
         from PyQt6.QtWidgets import QApplication
 
         app_instance = QApplication(sys.argv)
-        lausch = LauschApp(app_instance, transcriber, config)
+        lausch = LauschApp(app_instance, transcriber, settings, config)
         lausch.run()
     except KeyboardInterrupt:
         logger.info("App terminated by user")

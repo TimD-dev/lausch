@@ -59,6 +59,8 @@ class Transcriber:
             vad_parameters=dict(
                 min_silence_duration_ms=self.config.vad_min_silence_ms
             ),
+            language=self.config.language,
+            initial_prompt=self.config.initial_prompt,
         )
 
         logger.info(

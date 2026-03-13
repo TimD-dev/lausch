@@ -11,18 +11,23 @@ class AudioConfig:
     channels: int = 1
     queue_timeout: float = 0.1
     visualizer_bar_count: int = 10
-    volume_boost_factor: float = 15.0
+    volume_boost_factor: float = 50.0
+    device: int | None = None  # None = system default, or sounddevice device index
 
 
 @dataclass(frozen=True)
 class TranscriberConfig:
-    model_size: str = "tiny"
+    model_size: str = "base"
     device: str = "cpu"
     compute_type: str = "int8"
     beam_size: int = 2
     vad_filter: bool = True
     vad_min_silence_ms: int = 500
     warmup_duration_samples: int = 16000  # 1 second at 16kHz
+    language: str | None = None  # None = auto-detect, or "de", "en", etc.
+    # Context prompt improves recognition accuracy significantly.
+    # Whisper uses this as "prior" context to condition the decoder.
+    initial_prompt: str | None = None
 
 
 @dataclass(frozen=True)
@@ -39,9 +44,10 @@ class UIConfig:
     color_accent: str = "#E07A5F"
     color_border: str = "#E5E0D8"
     bar_spacing: int = 4
-    min_amplitude: float = 0.05
+    min_amplitude: float = 0.02
     visualizer_min_width: int = 100
     visualizer_min_height: int = 30
+    position: str = "bottom"  # "bottom" or "top"
 
 
 @dataclass(frozen=True)

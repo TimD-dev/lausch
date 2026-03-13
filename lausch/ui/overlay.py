@@ -53,7 +53,10 @@ class OverlayWindow(QWidget):
     def center_at_bottom(self) -> None:
         screen = QApplication.primaryScreen().geometry()
         x = (screen.width() - self.width()) // 2
-        y = screen.height() - self.height() - self.config.taskbar_offset
+        if self.config.position == "top":
+            y = self.config.taskbar_offset
+        else:
+            y = screen.height() - self.height() - self.config.taskbar_offset
         self.move(x, y)
 
     def paintEvent(self, event: object) -> None:
